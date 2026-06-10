@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import './variables.css';
+
+/* Custom component styles can go here, ensuring they use variables */
+.card {
+  @apply bg-slate-900 border border-slate-800 rounded-2xl shadow-md p-6;
+}
+
+.tab-btn-active {
+  @apply bg-indigo-600 text-white font-medium;
+}
+
+.tab-btn-inactive {
+  @apply text-slate-400 hover:text-white hover:bg-slate-800/50 font-medium;
+}

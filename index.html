@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamControl - Panel de Administración Professional</title>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col md:flex-row overflow-hidden">
+
+    <!-- BARRA LATERAL (SIDEBAR) -->
+    <aside class="w-full md:w-64 bg-slate-900 border-b md:border-b-0 md:border-r border-slate-800 flex flex-col justify-between p-6 shrink-0 z-20">
+        <div>
+            <!-- Logo -->
+            <div class="flex items-center gap-3 mb-8">
+                <div class="h-10 w-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
+                    <i class="fa-solid fa-wand-magic-sparkles text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight">StreamControl</h1>
+                    <span class="text-xs text-indigo-400 font-semibold">Pro Panel v2.0</span>
+                </div>
+            </div>
+
+            <!-- Navegación -->
+            <nav class="space-y-1" id="main-nav">
+                <button data-tab="dashboard" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-indigo-600 text-white font-medium transition-all">
+                    <i class="fa-solid fa-chart-pie text-lg"></i>
+                    <span>Panel General</span>
+                </button>
+                <button data-tab="accounts" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/50 font-medium transition-all">
+                    <i class="fa-solid fa-tv text-lg"></i>
+                    <span>Gestión de Cuentas</span>
+                </button>
+                <button data-tab="customers" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/50 font-medium transition-all">
+                    <i class="fa-solid fa-users text-lg"></i>
+                    <span>Clientes Finales</span>
+                </button>
+                <button data-tab="recovery" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/50 font-medium transition-all">
+                    <i class="fa-solid fa-key text-lg"></i>
+                    <span>Desbloqueo / OTP</span>
+                </button>
+            </nav>
+        </div>
+
+        <!-- Info Usuario -->
+        <div class="mt-8 pt-6 border-t border-slate-800 flex items-center gap-3">
+            <div class="h-9 w-9 rounded-full bg-slate-800 flex items-center justify-center font-bold text-indigo-400">
+                A
+            </div>
+            <div>
+                <p class="text-sm font-semibold">Administrador</p>
+                <p class="text-xs text-slate-500">Modo Supabase</p>
+            </div>
+        </div>
+    </aside>
+
+    <!-- CONTENIDOR PRINCIPAL -->
+    <main class="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <!-- Header Superior -->
+        <header class="h-16 border-b border-slate-900 bg-slate-950/50 backdrop-blur-md flex items-center justify-between px-6 shrink-0 z-10">
+            <h2 id="header-title" class="text-xl font-bold text-slate-100">Panel General</h2>
+            <div class="flex items-center gap-4">
+                <div id="connection-status" class="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 text-emerald-400 rounded-full border border-emerald-500/20 text-xs font-semibold">
+                    <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Supabase Conectado
+                </div>
+            </div>
+        </header>
+
+        <!-- Area de Contenido Dinámico -->
+        <div class="p-6 md:p-8 flex-1 max-w-7xl w-full mx-auto space-y-8 overflow-y-auto">
+
+            <!-- BARRA DE BÚSQUEDA GLOBAL -->
+            <div class="relative group">
+                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <i class="fa-solid fa-magnifying-glass text-slate-400 group-focus-within:text-indigo-400 transition-colors"></i>
+                </div>
+                <input type="text" id="global-search" placeholder="Buscar cliente, email o plataforma..." 
+                    class="w-full bg-slate-900 border border-slate-800 rounded-2xl pl-11 pr-4 py-4 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all shadow-xl">
+            </div>
+
+            <!-- CONTENEDOR TAB: DASHBOARD -->
+            <div id="tab-dashboard" class="tab-content space-y-8">
+                <!-- Estadísticas Clave -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="card">
+                        <div class="flex justify-between items-start mb-4">
+                            <span class="text-slate-400 font-medium text-sm">Cuentas Matrices</span>
+                            <span class="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl"><i class="fa-solid fa-server"></i></span>
+                        </div>
+                        <h3 class="text-3xl font-extrabold" id="stat-total-accounts">...</h3>
+                        <p class="text-xs text-slate-500 mt-1" id="stat-total-profiles">Cargando...</p>
+                    </div>
+                    <div class="card">
+                        <div class="flex justify-between items-start mb-4">
+                            <span class="text-slate-400 font-medium text-sm">Clientes Activos</span>
+                            <span class="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl"><i class="fa-solid fa-users"></i></span>
+                        </div>
+                        <h3 class="text-3xl font-extrabold" id="stat-active-customers">...</h3>
+                        <p class="text-xs text-slate-500 mt-1">Suscripciones activas</p>
+                    </div>
+                    <div class="card">
+                        <div class="flex justify-between items-start mb-4">
+                            <span class="text-slate-400 font-medium text-sm">Alertas Críticas</span>
+                            <span class="p-2 bg-rose-500/10 text-rose-400 rounded-xl"><i class="fa-solid fa-triangle-exclamation"></i></span>
+                        </div>
+                        <h3 class="text-3xl font-extrabold text-rose-400" id="stat-blocked-accounts">...</h3>
+                        <p class="text-xs text-rose-400/70 mt-1">Requieren atención</p>
+                    </div>
+                    <div class="card">
+                        <div class="flex justify-between items-start mb-4">
+                            <span class="text-slate-400 font-medium text-sm">Ingresos Totales</span>
+                            <span class="p-2 bg-amber-500/10 text-amber-400 rounded-xl"><i class="fa-solid fa-wallet"></i></span>
+                        </div>
+                        <h3 class="text-3xl font-extrabold text-amber-400" id="stat-earnings">$0.00</h3>
+                        <p class="text-xs text-slate-500 mt-1">Ventas registradas</p>
+                    </div>
+                </div>
+
+                <!-- Resumen de Incidentes -->
+                <div class="bg-slate-900 p-6 rounded-2xl border border-slate-800">
+                    <div class="flex justify-between items-center mb-6">
+                        <div>
+                            <h3 class="font-bold text-lg text-slate-100">Alertas de Caídas Reportadas</h3>
+                            <p class="text-xs text-slate-400">Atiende a tus clientes inmediatamente para evitar reembolsos.</p>
+                        </div>
+                        <span class="px-3 py-1 bg-rose-500/15 text-rose-400 rounded-full text-xs font-bold uppercase tracking-wider">Prioridad Alta</span>
+                    </div>
+                    <div class="space-y-4" id="incident-list">
+                        <!-- JS content -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- CONTENEDOR TAB: GESTIÓN DE CUENTAS -->
+            <div id="tab-accounts" class="tab-content hidden space-y-6">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900 p-6 rounded-2xl border border-slate-800">
+                    <div>
+                        <h3 class="font-bold text-lg text-slate-100">Inventario de Cuentas Matrices</h3>
+                        <p class="text-xs text-slate-400">Controla tus cuentas principales y distribuye las pantallas.</p>
+                    </div>
+                    <button id="btn-open-add-account" class="px-5 py-3 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-indigo-500/20">
+                        <i class="fa-solid fa-plus"></i> Registrar Cuenta Matriz
+                    </button>
+                </div>
+
+                <div class="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="border-b border-slate-800 text-slate-400 text-[10px] font-bold uppercase tracking-widest bg-slate-950/30">
+                                    <th class="p-4 pl-6">Plataforma</th>
+                                    <th class="p-4">Credenciales</th>
+                                    <th class="p-4">Slots (Disponibilidad)</th>
+                                    <th class="p-4">Expiración</th>
+                                    <th class="p-4">Estado</th>
+                                    <th class="p-4 text-right pr-6">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="accounts-table-body" class="divide-y divide-slate-800 text-xs text-slate-300">
+                                <!-- JS content -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CONTENEDOR TAB: CLIENTES FINALES -->
+            <div id="tab-customers" class="tab-content hidden space-y-6">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900 p-6 rounded-2xl border border-slate-800">
+                    <div>
+                        <h3 class="font-bold text-lg text-slate-100">Directorio de Clientes Retail</h3>
+                        <p class="text-xs text-slate-400">Control de cobros y perfiles asignados por usuario.</p>
+                    </div>
+                    <button id="btn-open-add-customer" class="px-5 py-3 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-indigo-500/20">
+                        <i class="fa-solid fa-user-plus"></i> Nuevo Cliente
+                    </button>
+                </div>
+
+                <div class="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="border-b border-slate-800 text-slate-400 text-[10px] font-bold uppercase tracking-widest bg-slate-950/30">
+                                    <th class="p-4 pl-6">Cliente</th>
+                                    <th class="p-4">WhatsApp</th>
+                                    <th class="p-4">Suscripción</th>
+                                    <th class="p-4">Cuenta / Perfil</th>
+                                    <th class="p-4">Pago / Vence</th>
+                                    <th class="p-4">Días</th>
+                                    <th class="p-4 text-right pr-6">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="customers-table-body" class="divide-y divide-slate-800 text-xs text-slate-300">
+                                <!-- JS content -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CONTENEDOR TAB: RECUPERACIÓN / OTP -->
+            <div id="tab-recovery" class="tab-content hidden space-y-8">
+                <!-- Similar a la anterior pero con IDs para TS -->
+                <div class="bg-slate-900 p-8 rounded-2xl border border-slate-800 text-center">
+                    <i class="fa-solid fa-key text-5xl text-indigo-500 mb-4"></i>
+                    <h3 class="font-bold text-2xl text-slate-100">Extractor de Códigos OTP</h3>
+                    <p class="text-sm text-slate-400 max-w-xl mx-auto mt-2">
+                        Simulación de conexión IMAP profesional para extracción de códigos de verificación en tiempo real.
+                    </p>
+                </div>
+                <!-- ... form and console ... -->
+            </div>
+        </div>
+    </main>
+
+    <!-- NOTIFICACIÓN -->
+    <div id="toast" class="fixed bottom-6 right-6 p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-center gap-3 shadow-2xl transition-all duration-300 translate-y-24 opacity-0 z-50">
+        <div id="toast-icon-bg" class="p-2 rounded-xl text-white">
+            <i id="toast-icon" class="fa-solid"></i>
+        </div>
+        <div>
+            <h5 id="toast-title" class="font-bold text-sm text-slate-100"></h5>
+            <p id="toast-desc" class="text-xs text-slate-400 mt-0.5"></p>
+        </div>
+    </div>
+
+    <!-- Modales (Placeholder, will be handled by TS) -->
+    <div id="modal-container"></div>
+
+    <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
