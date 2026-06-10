@@ -33,12 +33,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     } catch (error) {
         console.error('Critical initialization error:', error);
         showToast("Error Crítico", "No se pudo iniciar la aplicación correctamente.", "error");
-        
-        const statusEl = document.getElementById('connection-status');
-        if (statusEl) {
-            statusEl.className = "flex items-center gap-2 px-3 py-1.5 bg-rose-500/10 text-rose-400 rounded-full border border-rose-500/20 text-xs font-semibold";
-            statusEl.innerHTML = `<span class="h-2 w-2 rounded-full bg-rose-400"></span> Error de Conexión`;
-        }
     }
 });
 
@@ -97,7 +91,7 @@ function switchTab(tabId: string) {
     const titles: Record<string, string> = {
         dashboard: "Panel General",
         accounts: "Gestión de Cuentas Matrices",
-        customers: "Clientes Finales",
+        customers: "Nuevo Cliente",
         recovery: "Desbloqueador de OTP"
     };
     const titleEl = document.getElementById('header-title');
