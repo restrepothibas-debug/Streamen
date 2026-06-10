@@ -42,17 +42,31 @@
                     <span>Desbloqueo / OTP</span>
                 </button>
             </nav>
+
+            <!-- Botón Permanente de Agregar Cliente (NUEVO) -->
+            <div class="mt-8 px-2">
+                <button id="sidebar-quick-add" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20 transition-all active:scale-95">
+                    <i class="fa-solid fa-plus-circle"></i>
+                    <span>Nuevo Cliente</span>
+                </button>
+            </div>
         </div>
 
-        <!-- Info Usuario -->
-        <div class="mt-8 pt-6 border-t border-slate-800 flex items-center gap-3">
-            <div class="h-9 w-9 rounded-full bg-slate-800 flex items-center justify-center font-bold text-indigo-400">
-                A
+        <!-- Info Usuario y Logout -->
+        <div class="mt-8 pt-6 border-t border-slate-800 space-y-4">
+            <div class="flex items-center gap-3">
+                <div class="h-9 w-9 rounded-full bg-slate-800 flex items-center justify-center font-bold text-indigo-400">
+                    A
+                </div>
+                <div class="flex-1">
+                    <p class="text-sm font-semibold text-slate-200">Administrador</p>
+                    <p class="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Modo Pro</p>
+                </div>
             </div>
-            <div>
-                <p class="text-sm font-semibold">Administrador</p>
-                <p class="text-xs text-slate-500">Modo Supabase</p>
-            </div>
+            <button id="btn-logout" class="w-full flex items-center justify-between px-4 py-2 text-xs font-bold text-rose-400 hover:bg-rose-500/10 rounded-lg transition-all group">
+                <span>Cerrar Sesión</span>
+                <i class="fa-solid fa-right-from-bracket group-hover:translate-x-1 transition-transform"></i>
+            </button>
         </div>
     </aside>
 

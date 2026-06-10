@@ -19,6 +19,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         initTabs();
         initSearch();
         initModals();
+        initSidebarActions();
         
         // Legacy check
         if (localStorage.getItem('sc_accounts')) {
@@ -40,6 +41,23 @@ window.addEventListener('DOMContentLoaded', async () => {
         }
     }
 });
+
+function initSidebarActions() {
+    // Botón permanente de Agregar Cliente
+    document.getElementById('sidebar-quick-add')?.addEventListener('click', () => {
+        openModal('add-customer');
+    });
+
+    // Botón de Logout
+    document.getElementById('btn-logout')?.addEventListener('click', () => {
+        if (confirm("¿Estás seguro de que deseas cerrar sesión?")) {
+            console.log('Logging out...');
+            // En el futuro aquí iría supabase.auth.signOut()
+            sessionStorage.clear();
+            location.reload();
+        }
+    });
+}
 
 // Catch unhandled errors
 window.addEventListener('error', (event) => {
