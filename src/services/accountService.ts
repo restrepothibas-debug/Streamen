@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { Account } from '../types';
+import { Account } from '../types/index.ts';
 
 export const accountService = {
   async getAll(): Promise<Account[]> {

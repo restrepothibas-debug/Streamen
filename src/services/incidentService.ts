@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { Incident } from '../types';
+import { Incident } from '../types/index.ts';
 
 export const incidentService = {
   async getAll(): Promise<Incident[]> {

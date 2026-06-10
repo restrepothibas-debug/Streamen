@@ -1,18 +1,28 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 @import './variables.css';
 
-/* Custom component styles can go here, ensuring they use variables */
+/* Custom component styles */
 .card {
-  @apply bg-slate-900 border border-slate-800 rounded-2xl shadow-md p-6;
+  background-color: var(--color-sidebar);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-2xl);
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
 }
 
 .tab-btn-active {
-  @apply bg-indigo-600 text-white font-medium;
+  background-color: var(--color-primary);
+  color: white;
+  font-weight: 500;
 }
 
 .tab-btn-inactive {
-  @apply text-slate-400 hover:text-white hover:bg-slate-800/50 font-medium;
+  color: var(--color-text-dim);
+  font-weight: 500;
+}
+
+.tab-btn-inactive:hover {
+  color: white;
+  background-color: rgba(30, 41, 59, 0.5); /* slate-800/50 */
 }

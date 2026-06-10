@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { Customer } from '../types';
+import { Customer } from '../types/index.ts';
 
 export const customerService = {
   async getAll(): Promise<Customer[]> {

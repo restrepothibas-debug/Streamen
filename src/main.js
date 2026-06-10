@@ -1,418 +1,31 @@
 import './theme/main.css';
-import { accountService } from './services/accountService.ts';
-import { customerService } from './services/customerService.ts';
-import { incidentService } from './services/incidentService.ts';
-import { Account, Customer, Incident } from './types/index.ts';
-import { debounce, throttle } from './utils/event-control.ts';
-
+import { accountService } from './services/accountService';
+import { customerService } from './services/customerService';
+import { incidentService } from './services/incidentService';
+import { Account, Customer, Incident } from './types';
+import { debounce, throttle } from './utils/event-control';
 // --- APP STATE ---
-let accounts: Account[] = [];
-let customers: Customer[] = [];
-let incidents: Incident[] = [];
+let accounts = [];
+let customers = [];
+let incidents = [];
 let currentSearchQuery = "";
-
-// --- INITIALIZATION ---
-window.addEventListener('DOMContentLoaded', async () => {
-    initTabs();
-    initSearch();
-    initModals();
-    
-    // Legacy check
-    if (localStorage.getItem('sc_accounts')) {
-        showToast("Legacy Data", "Se detectaron datos antiguos. Use el sistema de Backup para importar.", "info");
-    }
-
-    await refreshAllData();
-});
-
-// --- TABS LOGIC ---
-function initTabs() {
-    const navButtons = document.querySelectorAll('.nav-btn');
-    navButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const tab = btn.getAttribute('data-tab');
-            if (tab) switchTab(tab);
-        });
-    });
-}
-
-function switchTab(tabId: string) {
-    // Update UI
-    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-    document.getElementById(`tab-${tabId}`)?.classList.remove('hidden');
-
-    if (tabId === 'recovery') renderRecoveryTab();
-
-    document.querySelectorAll('.nav-btn').forEach(btn => {
-        const btnTab = btn.getAttribute('data-tab');
-        if (btnTab === tabId) {
-            btn.classList.add('bg-indigo-600', 'text-white');
-            btn.classList.remove('text-slate-400', 'hover:bg-slate-800/50');
-        } else {
-            btn.classList.remove('bg-indigo-600', 'text-white');
-            btn.classList.add('text-slate-400', 'hover:bg-slate-800/50');
-        }
-    });
-
-    // Update Header
-    const titles: Record<string, string> = {
-        dashboard: "Panel General",
-        accounts: "Gestión de Cuentas Matrices",
-        customers: "Clientes Finales",
-        recovery: "Desbloqueador de OTP"
-    };
-    const titleEl = document.getElementById('header-title');
-    if (titleEl) titleEl.innerText = titles[tabId] || "Panel";
-}
-
-// --- SEARCH LOGIC ---
-function initSearch() {
-    const searchInput = document.getElementById('global-search') as HTMLInputElement;
-    if (searchInput) {
-        searchInput.addEventListener('input', debounce(() => {
-            currentSearchQuery = searchInput.value.toLowerCase();
-            renderAccountsTable();
-            renderCustomersTable();
-        }, 300));
-    }
-}
-
-// --- DATA REFRESH ---
-async function refreshAllData() {
-    try {
-        const [accs, custs, incs] = await Promise.all([
-            accountService.getAll(),
-            customerService.getAll(),
-            incidentService.getAll()
-        ]);
-        accounts = accs;
-        customers = custs;
-        incidents = incs;
-        
-        renderAll();
-    } catch (err) {
-        console.error("Error refreshing data:", err);
-        showToast("Error de Conexión", "No se pudo sincronizar con Supabase", "error");
-    }
-}
-
-function renderAll() {
-    renderStats();
-    renderIncidents();
-    renderAccountsTable();
-    renderCustomersTable();
-}
-
-// --- RENDERING HELPERS ---
-function renderStats() {
-    const totalAccEl = document.getElementById('stat-total-accounts');
-    const totalProfEl = document.getElementById('stat-total-profiles');
-    const activeCustEl = document.getElementById('stat-active-customers');
-    const blockedEl = document.getElementById('stat-blocked-accounts');
-    const earningsEl = document.getElementById('stat-earnings');
-
-    if (totalAccEl) totalAccEl.innerText = accounts.length.toString();
-    
-    const totalProfiles = accounts.reduce((acc, curr) => acc + curr.profiles_total, 0);
-    if (totalProfEl) totalProfEl.innerText = `${totalProfiles} perfiles totales`;
-    
-    if (activeCustEl) activeCustEl.innerText = customers.length.toString();
-    
-    const alerts = incidents.filter(i => i.status === 'Abierto').length + accounts.filter(a => a.status !== 'Activa').length;
-    if (blockedEl) blockedEl.innerText = alerts.toString();
-    
-    const totalEarnings = customers.reduce((acc, curr) => acc + Number(curr.paid_amount), 0);
-    if (earningsEl) earningsEl.innerText = `$${totalEarnings.toFixed(2)}`;
-}
-
-function renderIncidents() {
-    const container = document.getElementById('incident-list');
-    if (!container) return;
-    container.innerHTML = "";
-
-    const activeIncidents = incidents.filter(i => i.status === 'Abierto');
-
-    if (activeIncidents.length === 0) {
-        container.innerHTML = `
-            <div class="text-center py-10 bg-slate-900/50 rounded-2xl border border-slate-800 border-dashed">
-                <div class="h-12 w-12 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <i class="fa-solid fa-check text-xl"></i>
-                </div>
-                <p class="text-slate-400 text-sm">No hay reportes activos. Todo funciona correctamente.</p>
-            </div>
-        `;
-        return;
-    }
-
-    activeIncidents.forEach(inc => {
-        const serviceColor = getServiceColorClass(inc.service_name || '');
-        container.innerHTML += `
-            <div class="p-5 bg-slate-900 border border-slate-800 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6 group hover:border-slate-700 transition-all">
-                <div class="flex items-start gap-4">
-                    <div class="p-3 ${serviceColor} text-white rounded-xl shadow-lg">
-                        <i class="fa-solid fa-triangle-exclamation"></i>
-                    </div>
-                    <div>
-                        <div class="flex items-center gap-2 mb-1">
-                            <h4 class="font-bold text-slate-100">${inc.customer_name || 'Cliente'}</h4>
-                            <span class="px-2 py-0.5 bg-rose-500/20 text-rose-400 rounded-full text-[10px] font-bold uppercase tracking-wider">${inc.severity}</span>
-                        </div>
-                        <p class="text-xs text-slate-400 font-medium">Motivo: <span class="text-slate-300">${inc.issue}</span></p>
-                        <div class="flex items-center gap-3 mt-2">
-                            <span class="text-[10px] text-slate-500 flex items-center gap-1"><i class="fa-solid fa-clock"></i> ${new Date(inc.created_at || '').toLocaleTimeString()}</span>
-                            <span class="text-[10px] text-slate-500 flex items-center gap-1"><i class="fa-solid fa-at"></i> ${inc.account_email || ''}</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="flex items-center gap-2 w-full md:w-auto">
-                    <button class="btn-otp flex-1 md:flex-none px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all" data-id="${inc.account_id}">
-                        Extraer OTP
-                    </button>
-                    <button class="btn-resolve p-2 text-slate-500 hover:text-emerald-400 transition-colors" data-id="${inc.id}">
-                        <i class="fa-solid fa-circle-check text-xl"></i>
-                    </button>
-                </div>
-            </div>
-        `;
-    });
-
-    // Attach listeners
-    container.querySelectorAll('.btn-otp').forEach(btn => btn.addEventListener('click', () => {
-        const id = btn.getAttribute('data-id');
-        if (id) goToOTP(id);
-    }));
-    container.querySelectorAll('.btn-resolve').forEach(btn => btn.addEventListener('click', async () => {
-        const id = btn.getAttribute('data-id');
-        if (id) await resolveIncident(id);
-    }));
-}
-
-function renderAccountsTable() {
-    const body = document.getElementById('accounts-table-body');
-    if (!body) return;
-    body.innerHTML = "";
-
-    const filtered = accounts.filter(acc => 
-        acc.service.toLowerCase().includes(currentSearchQuery) || 
-        acc.email.toLowerCase().includes(currentSearchQuery)
-    );
-
-    filtered.forEach(acc => {
-        const serviceColor = getServiceColorClass(acc.service);
-        const daysLeft = calculateDaysRemaining(acc.expiration);
-        
-        let expBadgeClass = "text-slate-400";
-        if (daysLeft < 0) expBadgeClass = "text-rose-500 font-bold bg-rose-500/10 px-2 py-1 rounded-lg";
-        else if (daysLeft <= 5) expBadgeClass = "text-amber-500 font-bold bg-amber-500/10 px-2 py-1 rounded-lg";
-
-        let slotsHtml = "";
-        for (let i = 1; i <= acc.profiles_total; i++) {
-            const isTaken = i <= acc.assigned_profiles;
-            slotsHtml += `<div class="h-2 w-2 rounded-full ${isTaken ? 'bg-indigo-500' : 'bg-emerald-500'}" title="Perfil ${i}"></div>`;
-        }
-
-        body.innerHTML += `
-            <tr class="hover:bg-slate-850/30 transition-all border-b border-slate-800/50">
-                <td class="p-4 pl-6">
-                    <div class="flex items-center gap-3">
-                        <span class="h-10 w-10 rounded-xl ${serviceColor} text-white font-bold text-xs flex items-center justify-center">${acc.service.substring(0,3)}</span>
-                        <div>
-                            <span class="font-bold text-slate-100 block">${acc.service}</span>
-                            <span class="text-xs text-slate-400 uppercase tracking-tighter">${acc.provider || 'N/A'}</span>
-                        </div>
-                    </div>
-                </td>
-                <td class="p-4">
-                    <div class="font-mono text-xs text-slate-200">${acc.email}</div>
-                    <div class="text-xs text-indigo-400 mt-1 font-medium flex items-center gap-1">
-                        <i class="fa-solid fa-lock"></i> ${acc.password || '****'}
-                    </div>
-                </td>
-                <td class="p-4">
-                    <div class="flex flex-col gap-2">
-                        <div class="flex items-center gap-2">
-                            <span class="text-xs font-bold text-slate-200">${acc.assigned_profiles}/${acc.profiles_total}</span>
-                            <div class="flex gap-1.5">${slotsHtml}</div>
-                        </div>
-                    </div>
-                </td>
-                <td class="p-4">
-                    <div class="text-xs font-bold ${expBadgeClass}">${daysLeft < 0 ? 'Vencida' : daysLeft + ' días'}</div>
-                    <div class="text-xs text-slate-400 font-medium mt-1">${acc.expiration}</div>
-                </td>
-                <td class="p-4">
-                    <span class="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 rounded-full text-[10px] font-bold uppercase">${acc.status}</span>
-                </td>
-                <td class="p-4 text-right pr-6 space-x-1">
-                    <button class="btn-otp p-2.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-xl" data-id="${acc.id}"><i class="fa-solid fa-key"></i></button>
-                    <button class="btn-delete p-2.5 bg-slate-800 hover:bg-rose-500/20 hover:text-rose-400 text-slate-400 rounded-xl" data-id="${acc.id}"><i class="fa-solid fa-trash"></i></button>
-                </td>
-            </tr>
-        `;
-    });
-
-    body.querySelectorAll('.btn-delete').forEach(btn => btn.addEventListener('click', async () => {
-        const id = btn.getAttribute('data-id');
-        if (id && confirm("¿Eliminar esta cuenta matriz?")) {
-            await accountService.delete(id);
-            await refreshAllData();
-        }
-    }));
-    body.querySelectorAll('.btn-otp').forEach(btn => btn.addEventListener('click', () => {
-        const id = btn.getAttribute('data-id');
-        if (id) goToOTP(id);
-    }));
-}
-
-function renderCustomersTable() {
-    const body = document.getElementById('customers-table-body');
-    if (!body) return;
-    body.innerHTML = "";
-
-    const filtered = customers.filter(cust => 
-        cust.name.toLowerCase().includes(currentSearchQuery) || 
-        cust.service.toLowerCase().includes(currentSearchQuery)
-    );
-
-    filtered.forEach(cust => {
-        const serviceColor = getServiceColorClass(cust.service);
-        const daysLeft = calculateDaysRemaining(cust.expiration);
-        
-        let statusClass = "text-emerald-400 bg-emerald-500/10";
-        if (daysLeft < 0) statusClass = "text-rose-500 bg-rose-500/10";
-        else if (daysLeft <= 3) statusClass = "text-amber-500 bg-amber-500/10";
-
-        body.innerHTML += `
-            <tr class="hover:bg-slate-850/30 transition-all border-b border-slate-800/50">
-                <td class="p-4 pl-6">
-                    <div class="font-bold text-slate-100">${cust.name}</div>
-                    <div class="text-xs text-slate-500">ID: ${cust.id.substring(0,8)}</div>
-                </td>
-                <td class="p-4">
-                    <a href="https://wa.me/${cust.phone.replace(/[^0-9]/g, '')}" target="_blank" class="text-emerald-400 font-bold text-xs"><i class="fa-brands fa-whatsapp"></i> ${cust.phone}</a>
-                </td>
-                <td class="p-4">
-                    <span class="px-2.5 py-1 ${serviceColor} text-white rounded-md text-[10px] font-bold uppercase">${cust.service}</span>
-                </td>
-                <td class="p-4">
-                    <div class="text-xs text-indigo-400 font-semibold"><i class="fa-solid fa-circle-user"></i> ${cust.profile_detail}</div>
-                </td>
-                <td class="p-4">
-                    <div class="text-xs font-bold text-slate-100">$${Number(cust.paid_amount).toFixed(2)}</div>
-                    <div class="text-xs text-slate-400 mt-1">${cust.expiration}</div>
-                </td>
-                <td class="p-4">
-                    <span class="px-2 py-1 rounded-lg text-xs font-bold uppercase ${statusClass}">${daysLeft}d</span>
-                </td>
-                <td class="p-4 text-right pr-6 space-x-1">
-                    <button class="btn-wa p-2.5 bg-emerald-500/10 text-emerald-400 rounded-xl" data-id="${cust.id}"><i class="fa-brands fa-whatsapp"></i></button>
-                    <button class="btn-copy p-2.5 bg-indigo-500/10 text-indigo-400 rounded-xl" data-id="${cust.id}"><i class="fa-regular fa-copy"></i></button>
-                    <button class="btn-renew p-2.5 bg-slate-800 text-slate-300 rounded-xl" data-id="${cust.id}"><i class="fa-solid fa-arrows-rotate"></i></button>
-                </td>
-            </tr>
-        `;
-    });
-
-    body.querySelectorAll('.btn-wa').forEach(btn => btn.addEventListener('click', () => {
-        const id = btn.getAttribute('data-id');
-        if (id) sendWhatsAppReminder(id);
-    }));
-    body.querySelectorAll('.btn-copy').forEach(btn => btn.addEventListener('click', () => {
-        const id = btn.getAttribute('data-id');
-        if (id) copyCustomerCredentials(id);
-    }));
-    body.querySelectorAll('.btn-renew').forEach(btn => btn.addEventListener('click', () => {
-        const id = btn.getAttribute('data-id');
-        if (id) renewCustomer(id);
-    }));
-}
-
-// --- ACTIONS ---
-function goToOTP(accountId: string) {
-    switchTab('recovery');
-    const select = document.querySelector('select[name="account_id"]') as HTMLSelectElement;
-    if (select) select.value = accountId;
-}
-
-async function resolveIncident(id: string) {
-    await incidentService.resolve(id);
-    await refreshAllData();
-    showToast("Resuelto", "Incidencia marcada como completada", "success");
-}
-
-function sendWhatsAppReminder(custId: string) {
-    const cust = customers.find(c => c.id === custId);
-    const acc = accounts.find(a => a.id === cust?.account_id);
-    if (!cust || !acc) return;
-
-    const daysLeft = calculateDaysRemaining(cust.expiration);
-    let message = "";
-
-    if (daysLeft < 0) {
-        message = `Hola *${cust.name}*, te escribo de *StreamControl*. Tu suscripción de *${cust.service}* ha vencido hace ${daysLeft * -1} días. ¿Deseas renovar?`;
-    } else if (daysLeft <= 3) {
-        message = `Hola *${cust.name}*, recordatorio de pago. Tu cuenta de *${cust.service}* vence en ${daysLeft} días (${cust.expiration}).`;
-    } else {
-        message = `Hola *${cust.name}*, aquí tienes los datos de tu cuenta *${cust.service}*:\n\n📧 *Correo:* ${acc.email}\n🔑 *Clave:* ${acc.password}\n👤 *Perfil:* ${cust.profile_detail}\n📅 *Vence:* ${cust.expiration}\n\n¡Gracias por tu compra!`;
-    }
-
-    const encodedMsg = encodeURIComponent(message);
-    const phone = cust.phone.replace(/[^0-9]/g, '');
-    window.open(`https://wa.me/${phone}?text=${encodedMsg}`, '_blank');
-}
-
-function copyCustomerCredentials(custId: string) {
-    const cust = customers.find(c => c.id === custId);
-    const acc = accounts.find(a => a.id === cust?.account_id);
-    if (!cust || !acc) return;
-
-    const text = `*DATOS DE TU SUSCRIPCIÓN*\n\n` +
-                 `*Servicio:* ${cust.service}\n` +
-                 `*Correo:* ${acc.email}\n` +
-                 `*Clave:* ${acc.password}\n` +
-                 `*Perfil:* ${cust.profile_detail}\n` +
-                 `*Vence:* ${cust.expiration}`;
-
-    navigator.clipboard.writeText(text).then(() => {
-        showToast("Copiado", "Datos listos para enviar", "info");
-    });
-}
-
-async function renewCustomer(custId: string) {
-    const cust = customers.find(c => c.id === custId);
-    if (!cust) return;
-
-    const currentExp = new Date(cust.expiration);
-    currentExp.setDate(currentExp.getDate() + 30);
-    const newExp = currentExp.toISOString().split('T')[0];
-
-    try {
-        await customerService.update(custId, { expiration: newExp });
-        await refreshAllData();
-        showToast("Renovado", `${cust.name} renovado por 30 días`, "success");
-    } catch (err) {
-        showToast("Error", "No se pudo renovar", "error");
-    }
-}
-
+let currentTab = 'dashboard';
 // --- MODAL HANDLING ---
 function initModals() {
     const modalContainer = document.getElementById('modal-container');
-    if (!modalContainer) return;
-
+    if (!modalContainer)
+        return;
     document.getElementById('btn-open-add-account')?.addEventListener('click', () => {
         openModal('add-account');
     });
-
     document.getElementById('btn-open-add-customer')?.addEventListener('click', () => {
         openModal('add-customer');
     });
 }
-
-function openModal(type: 'add-account' | 'add-customer' | 'swap') {
+function openModal(type) {
     const container = document.getElementById('modal-container');
-    if (!container) return;
-
+    if (!container)
+        return;
     if (type === 'add-account') {
         container.innerHTML = `
             <div id="modal-add-account" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -464,7 +77,8 @@ function openModal(type: 'add-account' | 'add-customer' | 'swap') {
                 </div>
             </div>
         `;
-    } else if (type === 'add-customer') {
+    }
+    else if (type === 'add-customer') {
         const availableAccounts = accounts.filter(a => a.assigned_profiles < a.profiles_total);
         container.innerHTML = `
             <div id="modal-add-customer" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -515,12 +129,10 @@ function openModal(type: 'add-account' | 'add-customer' | 'swap') {
             </div>
         `;
     }
-
     // Bind Close events
     container.querySelectorAll('.modal-close').forEach(btn => btn.addEventListener('click', closeModal));
-    
     // Bind Submit events
-    const formAccount = document.getElementById('form-add-account') as HTMLFormElement;
+    const formAccount = document.getElementById('form-add-account');
     if (formAccount) {
         formAccount.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -528,25 +140,25 @@ function openModal(type: 'add-account' | 'add-customer' | 'swap') {
             const data = Object.fromEntries(formData.entries());
             try {
                 await accountService.create({
-                    service: data.service as string,
-                    email: data.email as string,
-                    password: data.password as string,
+                    service: data.service,
+                    email: data.email,
+                    password: data.password,
                     profiles_total: Number(data.profiles_total),
                     assigned_profiles: 0,
-                    provider: data.provider as string,
-                    expiration: data.expiration as string,
+                    provider: data.provider,
+                    expiration: data.expiration,
                     status: 'Activa'
                 });
                 showToast("Éxito", "Cuenta registrada correctamente", "success");
                 closeModal();
                 await refreshAllData();
-            } catch (err) {
+            }
+            catch (err) {
                 showToast("Error", "No se pudo crear la cuenta", "error");
             }
         });
     }
-
-    const formCustomer = document.getElementById('form-add-customer') as HTMLFormElement;
+    const formCustomer = document.getElementById('form-add-customer');
     if (formCustomer) {
         formCustomer.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -555,84 +167,421 @@ function openModal(type: 'add-account' | 'add-customer' | 'swap') {
             const acc = accounts.find(a => a.id === data.account_id);
             try {
                 await customerService.create({
-                    name: data.name as string,
-                    phone: data.phone as string,
+                    name: data.name,
+                    phone: data.phone,
                     service: acc?.service || '',
-                    account_id: data.account_id as string,
-                    profile_detail: data.profile_detail as string,
+                    account_id: data.account_id,
+                    profile_detail: data.profile_detail,
                     paid_amount: Number(data.paid_amount),
-                    expiration: data.expiration as string
+                    expiration: data.expiration
                 });
-                
                 // Update account count
                 if (acc) {
                     await accountService.update(acc.id, { assigned_profiles: acc.assigned_profiles + 1 });
                 }
-
                 showToast("Éxito", "Cliente registrado correctamente", "success");
                 closeModal();
                 await refreshAllData();
-            } catch (err) {
+            }
+            catch (err) {
                 showToast("Error", "No se pudo crear el cliente", "error");
             }
         });
     }
 }
-
 function closeModal() {
     const container = document.getElementById('modal-container');
-    if (container) container.innerHTML = "";
+    if (container)
+        container.innerHTML = "";
 }
-
+// --- INITIALIZATION UPDATE ---
+window.addEventListener('DOMContentLoaded', async () => {
+    initTabs();
+    initSearch();
+    initModals();
+    // Legacy check
+    if (localStorage.getItem('sc_accounts')) {
+        showToast("Legacy Data", "Se detectaron datos antiguos. Use el sistema de Backup para importar.", "info");
+    }
+    await refreshAllData();
+});
+// --- TABS LOGIC ---
+function initTabs() {
+    const navButtons = document.querySelectorAll('.nav-btn');
+    navButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tab = btn.getAttribute('data-tab');
+            if (tab)
+                switchTab(tab);
+        });
+    });
+}
+function switchTab(tabId) {
+    currentTab = tabId;
+    // Update UI
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    document.getElementById(`tab-${tabId}`)?.classList.remove('hidden');
+    if (tabId === 'recovery')
+        renderRecoveryTab();
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+        const btnTab = btn.getAttribute('data-tab');
+        if (btnTab === tabId) {
+            btn.classList.add('bg-indigo-600', 'text-white');
+            btn.classList.remove('text-slate-400', 'hover:bg-slate-800/50');
+        }
+        else {
+            btn.classList.remove('bg-indigo-600', 'text-white');
+            btn.classList.add('text-slate-400', 'hover:bg-slate-800/50');
+        }
+    });
+    // Update Header
+    const titles = {
+        dashboard: "Panel General",
+        accounts: "Gestión de Cuentas Matrices",
+        customers: "Clientes Finales",
+        recovery: "Desbloqueador de OTP"
+    };
+    const titleEl = document.getElementById('header-title');
+    if (titleEl)
+        titleEl.innerText = titles[tabId] || "Panel";
+}
+// --- SEARCH LOGIC ---
+function initSearch() {
+    const searchInput = document.getElementById('global-search');
+    if (searchInput) {
+        searchInput.addEventListener('input', debounce(() => {
+            currentSearchQuery = searchInput.value.toLowerCase();
+            renderAccountsTable();
+            renderCustomersTable();
+        }, 300));
+    }
+}
+// --- DATA REFRESH ---
+async function refreshAllData() {
+    try {
+        const [accs, custs, incs] = await Promise.all([
+            accountService.getAll(),
+            customerService.getAll(),
+            incidentService.getAll()
+        ]);
+        accounts = accs;
+        customers = custs;
+        incidents = incs;
+        renderAll();
+    }
+    catch (err) {
+        console.error("Error refreshing data:", err);
+        showToast("Error de Conexión", "No se pudo sincronizar con Supabase", "error");
+    }
+}
+function renderAll() {
+    renderStats();
+    renderIncidents();
+    renderAccountsTable();
+    renderCustomersTable();
+}
+// --- RENDERING HELPERS ---
+function renderStats() {
+    const totalAccEl = document.getElementById('stat-total-accounts');
+    const totalProfEl = document.getElementById('stat-total-profiles');
+    const activeCustEl = document.getElementById('stat-active-customers');
+    const blockedEl = document.getElementById('stat-blocked-accounts');
+    const earningsEl = document.getElementById('stat-earnings');
+    if (totalAccEl)
+        totalAccEl.innerText = accounts.length.toString();
+    const totalProfiles = accounts.reduce((acc, curr) => acc + curr.profiles_total, 0);
+    if (totalProfEl)
+        totalProfEl.innerText = `${totalProfiles} perfiles totales`;
+    if (activeCustEl)
+        activeCustEl.innerText = customers.length.toString();
+    const alerts = incidents.filter(i => i.status === 'Abierto').length + accounts.filter(a => a.status !== 'Activa').length;
+    if (blockedEl)
+        blockedEl.innerText = alerts.toString();
+    const totalEarnings = customers.reduce((acc, curr) => acc + Number(curr.paid_amount), 0);
+    if (earningsEl)
+        earningsEl.innerText = `$${totalEarnings.toFixed(2)}`;
+}
+function renderIncidents() {
+    const container = document.getElementById('incident-list');
+    if (!container)
+        return;
+    container.innerHTML = "";
+    const activeIncidents = incidents.filter(i => i.status === 'Abierto');
+    if (activeIncidents.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-10 bg-slate-900/50 rounded-2xl border border-slate-800 border-dashed">
+                <div class="h-12 w-12 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fa-solid fa-check text-xl"></i>
+                </div>
+                <p class="text-slate-400 text-sm">No hay reportes activos. Todo funciona correctamente.</p>
+            </div>
+        `;
+        return;
+    }
+    activeIncidents.forEach(inc => {
+        const serviceColor = getServiceColorClass(inc.service_name || '');
+        container.innerHTML += `
+            <div class="p-5 bg-slate-900 border border-slate-800 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6 group hover:border-slate-700 transition-all">
+                <div class="flex items-start gap-4">
+                    <div class="p-3 ${serviceColor} text-white rounded-xl shadow-lg">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <h4 class="font-bold text-slate-100">${inc.customer_name || 'Cliente'}</h4>
+                            <span class="px-2 py-0.5 bg-rose-500/20 text-rose-400 rounded-full text-[10px] font-bold uppercase tracking-wider">${inc.severity}</span>
+                        </div>
+                        <p class="text-xs text-slate-400 font-medium">Motivo: <span class="text-slate-300">${inc.issue}</span></p>
+                        <div class="flex items-center gap-3 mt-2">
+                            <span class="text-[10px] text-slate-500 flex items-center gap-1"><i class="fa-solid fa-clock"></i> ${new Date(inc.created_at || '').toLocaleTimeString()}</span>
+                            <span class="text-[10px] text-slate-500 flex items-center gap-1"><i class="fa-solid fa-at"></i> ${inc.account_email || ''}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 w-full md:w-auto">
+                    <button class="btn-otp flex-1 md:flex-none px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all" data-id="${inc.account_id}">
+                        Extraer OTP
+                    </button>
+                    <button class="btn-resolve p-2 text-slate-500 hover:text-emerald-400 transition-colors" data-id="${inc.id}">
+                        <i class="fa-solid fa-circle-check text-xl"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    // Attach listeners
+    container.querySelectorAll('.btn-otp').forEach(btn => btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        if (id)
+            goToOTP(id);
+    }));
+    container.querySelectorAll('.btn-resolve').forEach(btn => btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        if (id)
+            await resolveIncident(id);
+    }));
+}
+function renderAccountsTable() {
+    const body = document.getElementById('accounts-table-body');
+    if (!body)
+        return;
+    body.innerHTML = "";
+    const filtered = accounts.filter(acc => acc.service.toLowerCase().includes(currentSearchQuery) ||
+        acc.email.toLowerCase().includes(currentSearchQuery));
+    filtered.forEach(acc => {
+        const serviceColor = getServiceColorClass(acc.service);
+        const daysLeft = calculateDaysRemaining(acc.expiration);
+        let expBadgeClass = "text-slate-400";
+        if (daysLeft < 0)
+            expBadgeClass = "text-rose-500 font-bold bg-rose-500/10 px-2 py-1 rounded-lg";
+        else if (daysLeft <= 5)
+            expBadgeClass = "text-amber-500 font-bold bg-amber-500/10 px-2 py-1 rounded-lg";
+        let slotsHtml = "";
+        for (let i = 1; i <= acc.profiles_total; i++) {
+            const isTaken = i <= acc.assigned_profiles;
+            slotsHtml += `<div class="h-2 w-2 rounded-full ${isTaken ? 'bg-indigo-500' : 'bg-emerald-500'}" title="Perfil ${i}"></div>`;
+        }
+        body.innerHTML += `
+            <tr class="hover:bg-slate-850/30 transition-all border-b border-slate-800/50">
+                <td class="p-4 pl-6">
+                    <div class="flex items-center gap-3">
+                        <span class="h-10 w-10 rounded-xl ${serviceColor} text-white font-bold text-xs flex items-center justify-center">${acc.service.substring(0, 3)}</span>
+                        <div>
+                            <span class="font-bold text-slate-100 block">${acc.service}</span>
+                            <span class="text-xs text-slate-400 uppercase tracking-tighter">${acc.provider || 'N/A'}</span>
+                        </div>
+                    </div>
+                </td>
+                <td class="p-4">
+                    <div class="font-mono text-xs text-slate-200">${acc.email}</div>
+                    <div class="text-xs text-indigo-400 mt-1 font-medium flex items-center gap-1">
+                        <i class="fa-solid fa-lock"></i> ${acc.password || '****'}
+                    </div>
+                </td>
+                <td class="p-4">
+                    <div class="flex flex-col gap-2">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-bold text-slate-200">${acc.assigned_profiles}/${acc.profiles_total}</span>
+                            <div class="flex gap-1.5">${slotsHtml}</div>
+                        </div>
+                    </div>
+                </td>
+                <td class="p-4">
+                    <div class="text-xs font-bold ${expBadgeClass}">${daysLeft < 0 ? 'Vencida' : daysLeft + ' días'}</div>
+                    <div class="text-xs text-slate-400 font-medium mt-1">${acc.expiration}</div>
+                </td>
+                <td class="p-4">
+                    <span class="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 rounded-full text-[10px] font-bold uppercase">${acc.status}</span>
+                </td>
+                <td class="p-4 text-right pr-6 space-x-1">
+                    <button class="btn-otp p-2.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-xl" data-id="${acc.id}"><i class="fa-solid fa-key"></i></button>
+                    <button class="btn-delete p-2.5 bg-slate-800 hover:bg-rose-500/20 hover:text-rose-400 text-slate-400 rounded-xl" data-id="${acc.id}"><i class="fa-solid fa-trash"></i></button>
+                </td>
+            </tr>
+        `;
+    });
+    body.querySelectorAll('.btn-delete').forEach(btn => btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        if (id && confirm("¿Eliminar esta cuenta matriz?")) {
+            await accountService.delete(id);
+            await refreshAllData();
+        }
+    }));
+}
+function renderCustomersTable() {
+    const body = document.getElementById('customers-table-body');
+    if (!body)
+        return;
+    body.innerHTML = "";
+    const filtered = customers.filter(cust => cust.name.toLowerCase().includes(currentSearchQuery) ||
+        cust.service.toLowerCase().includes(currentSearchQuery));
+    filtered.forEach(cust => {
+        const serviceColor = getServiceColorClass(cust.service);
+        const daysLeft = calculateDaysRemaining(cust.expiration);
+        let statusClass = "text-emerald-400 bg-emerald-500/10";
+        if (daysLeft < 0)
+            statusClass = "text-rose-500 bg-rose-500/10";
+        else if (daysLeft <= 3)
+            statusClass = "text-amber-500 bg-amber-500/10";
+        body.innerHTML += `
+            <tr class="hover:bg-slate-850/30 transition-all border-b border-slate-800/50">
+                <td class="p-4 pl-6">
+                    <div class="font-bold text-slate-100">${cust.name}</div>
+                    <div class="text-xs text-slate-500">ID: ${cust.id.substring(0, 8)}</div>
+                </td>
+                <td class="p-4">
+                    <a href="https://wa.me/${cust.phone.replace(/[^0-9]/g, '')}" target="_blank" class="text-emerald-400 font-bold text-xs"><i class="fa-brands fa-whatsapp"></i> ${cust.phone}</a>
+                </td>
+                <td class="p-4">
+                    <span class="px-2.5 py-1 ${serviceColor} text-white rounded-md text-[10px] font-bold uppercase">${cust.service}</span>
+                </td>
+                <td class="p-4">
+                    <div class="text-xs text-indigo-400 font-semibold"><i class="fa-solid fa-circle-user"></i> ${cust.profile_detail}</div>
+                </td>
+                <td class="p-4">
+                    <div class="text-xs font-bold text-slate-100">$${Number(cust.paid_amount).toFixed(2)}</div>
+                    <div class="text-xs text-slate-400 mt-1">${cust.expiration}</div>
+                </td>
+                <td class="p-4">
+                    <span class="px-2 py-1 rounded-lg text-xs font-bold uppercase ${statusClass}">${daysLeft}d</span>
+                </td>
+                <td class="p-4 text-right pr-6 space-x-1">
+                    <button class="btn-wa p-2.5 bg-emerald-500/10 text-emerald-400 rounded-xl" data-id="${cust.id}"><i class="fa-brands fa-whatsapp"></i></button>
+                    <button class="btn-copy p-2.5 bg-indigo-500/10 text-indigo-400 rounded-xl" data-id="${cust.id}"><i class="fa-regular fa-copy"></i></button>
+                    <button class="btn-renew p-2.5 bg-slate-800 text-slate-300 rounded-xl" data-id="${cust.id}"><i class="fa-solid fa-arrows-rotate"></i></button>
+                </td>
+            </tr>
+        `;
+    });
+}
+// --- ACTIONS ---
+function sendWhatsAppReminder(custId) {
+    const cust = customers.find(c => c.id === custId);
+    const acc = accounts.find(a => a.id === cust?.account_id);
+    if (!cust || !acc)
+        return;
+    const daysLeft = calculateDaysRemaining(cust.expiration);
+    let message = "";
+    if (daysLeft < 0) {
+        message = `Hola *${cust.name}*, te escribo de *StreamControl*. Tu suscripción de *${cust.service}* ha vencido hace ${daysLeft * -1} días. ¿Deseas renovar?`;
+    }
+    else if (daysLeft <= 3) {
+        message = `Hola *${cust.name}*, recordatorio de pago. Tu cuenta de *${cust.service}* vence en ${daysLeft} días (${cust.expiration}).`;
+    }
+    else {
+        message = `Hola *${cust.name}*, aquí tienes los datos de tu cuenta *${cust.service}*:\n\n📧 *Correo:* ${acc.email}\n🔑 *Clave:* ${acc.password}\n👤 *Perfil:* ${cust.profile_detail}\n📅 *Vence:* ${cust.expiration}\n\n¡Gracias por tu compra!`;
+    }
+    const encodedMsg = encodeURIComponent(message);
+    const phone = cust.phone.replace(/[^0-9]/g, '');
+    window.open(`https://wa.me/${phone}?text=${encodedMsg}`, '_blank');
+}
+function copyCustomerCredentials(custId) {
+    const cust = customers.find(c => c.id === custId);
+    const acc = accounts.find(a => a.id === cust?.account_id);
+    if (!cust || !acc)
+        return;
+    const text = `*DATOS DE TU SUSCRIPCIÓN*\n\n` +
+        `*Servicio:* ${cust.service}\n` +
+        `*Correo:* ${acc.email}\n` +
+        `*Clave:* ${acc.password}\n` +
+        `*Perfil:* ${cust.profile_detail}\n` +
+        `*Vence:* ${cust.expiration}`;
+    navigator.clipboard.writeText(text).then(() => {
+        showToast("Copiado", "Datos listos para enviar", "info");
+    });
+}
+async function renewCustomer(custId) {
+    const cust = customers.find(c => c.id === custId);
+    if (!cust)
+        return;
+    const currentExp = new Date(cust.expiration);
+    currentExp.setDate(currentExp.getDate() + 30);
+    const newExp = currentExp.toISOString().split('T')[0];
+    try {
+        await customerService.update(custId, { expiration: newExp });
+        await refreshAllData();
+        showToast("Renovado", `${cust.name} renovado por 30 días`, "success");
+    }
+    catch (err) {
+        showToast("Error", "No se pudo renovar", "error");
+    }
+}
+// ... existing code ...
+function renderCustomersTable() {
+    // ... update logic to bind these actions ...
+    const body = document.getElementById('customers-table-body');
+    if (!body)
+        return;
+    // (Inside the loop)
+    // ... HTML generation ...
+    // Re-bind listeners after innerHTML update
+    body.querySelectorAll('.btn-wa').forEach(btn => btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        if (id)
+            sendWhatsAppReminder(id);
+    }));
+    body.querySelectorAll('.btn-copy').forEach(btn => btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        if (id)
+            copyCustomerCredentials(id);
+    }));
+    body.querySelectorAll('.btn-renew').forEach(btn => btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        if (id)
+            renewCustomer(id);
+    }));
+}
 // --- UTILS ---
-function calculateDaysRemaining(expDate: string) {
+function calculateDaysRemaining(expDate) {
     const diff = new Date(expDate).getTime() - new Date().getTime();
     return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
-
-function getServiceColorClass(service: string) {
-    switch(service) {
+function getServiceColorClass(service) {
+    switch (service) {
         case 'Netflix': return 'bg-red-600 hover:bg-red-700';
         case 'Disney+': return 'bg-blue-600 hover:bg-blue-700';
         case 'Spotify': return 'bg-emerald-600 hover:bg-emerald-700';
         default: return 'bg-indigo-600';
     }
 }
-
-function showToast(title: string, desc: string, type: 'success' | 'error' | 'info' = 'success') {
+function showToast(title, desc, type = 'success') {
     const toast = document.getElementById('toast');
-    if (!toast) return;
-    
-    document.getElementById('toast-title')!.innerText = title;
-    document.getElementById('toast-desc')!.innerText = desc;
-    
-    const iconBg = document.getElementById('toast-icon-bg')!;
-    const icon = document.getElementById('toast-icon')!;
-    
-    const colors = {
-        success: 'bg-emerald-500',
-        error: 'bg-rose-500',
-        info: 'bg-indigo-500'
-    };
-    
-    const icons = {
-        success: 'fa-circle-check',
-        error: 'fa-triangle-exclamation',
-        info: 'fa-circle-info'
-    };
-    
-    iconBg.className = `p-2 rounded-xl text-white ${colors[type]}`;
-    icon.className = `fa-solid ${icons[type]}`;
-
+    if (!toast)
+        return;
+    document.getElementById('toast-title').innerText = title;
+    document.getElementById('toast-desc').innerText = desc;
+    const iconBg = document.getElementById('toast-icon-bg');
+    const icon = document.getElementById('toast-icon');
+    iconBg.className = `p-2 rounded-xl text-white ${type === 'success' ? 'bg-emerald-500' : type === 'error' ? 'bg-rose-500' : 'bg-indigo-500'}`;
+    icon.className = `fa-solid ${type === 'success' ? 'fa-circle-check' : type === 'error' ? 'fa-triangle-exclamation' : 'fa-circle-info'}`;
     toast.classList.remove('translate-y-24', 'opacity-0');
     setTimeout(() => toast.classList.add('translate-y-24', 'opacity-0'), 4000);
 }
-
 // --- RECOVERY / OTP LOGIC ---
 function renderRecoveryTab() {
     const container = document.getElementById('tab-recovery');
-    if (!container) return;
-
+    if (!container)
+        return;
     container.innerHTML = `
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div class="card">
@@ -683,39 +632,41 @@ function renderRecoveryTab() {
             </div>
         </div>
     `;
-
-    const form = document.getElementById('form-otp') as HTMLFormElement;
+    const form = document.getElementById('form-otp');
     form?.addEventListener('submit', (e) => {
         throttle(handleOTPExtraction, 2000)(e);
     });
 }
-
-async function handleOTPExtraction(e: Event) {
+async function handleOTPExtraction(e) {
     e.preventDefault();
-    const btn = document.getElementById('btn-extract-otp') as HTMLButtonElement;
+    const btn = document.getElementById('btn-extract-otp');
     const loader = document.getElementById('otp-loader');
     const status = document.getElementById('otp-status-text');
     const consoleBox = document.getElementById('otp-console');
     const resultCard = document.getElementById('otp-result-card');
     const codeEl = document.getElementById('extracted-code');
-
-    if (btn) btn.disabled = true;
+    if (btn)
+        btn.disabled = true;
     loader?.classList.remove('hidden');
     resultCard?.classList.add('hidden');
-    if (consoleBox) consoleBox.innerHTML = `<p class="text-amber-400">> Iniciando túnel IMAP...</p>`;
-
+    if (consoleBox)
+        consoleBox.innerHTML = `<p class="text-amber-400">> Iniciando túnel IMAP...</p>`;
     const steps = ["Conectando al servidor...", "Validando SSL...", "Buscando correos...", "Extrayendo OTP..."];
     for (let step of steps) {
-        if (status) status.innerText = step;
-        if (consoleBox) consoleBox.innerHTML += `<p class="mt-1">> \${step}</p>`;
+        if (status)
+            status.innerText = step;
+        if (consoleBox)
+            consoleBox.innerHTML += `<p class="mt-1">> ${step}</p>`;
         await new Promise(r => setTimeout(r, 600));
     }
-
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    if (codeEl) codeEl.innerText = code;
-    
+    if (codeEl)
+        codeEl.innerText = code;
     loader?.classList.add('hidden');
     resultCard?.classList.remove('hidden');
-    if (btn) btn.disabled = false;
-    if (consoleBox) consoleBox.innerHTML += `<p class="text-emerald-400 mt-2">>> [ÉXITO] Código: \${code}</p>`;
+    if (btn)
+        btn.disabled = false;
+    if (consoleBox)
+        consoleBox.innerHTML += `<p class="text-emerald-400 mt-2">>> [ÉXITO] Código: ${code}</p>`;
 }
+//# sourceMappingURL=main.js.map
