@@ -60,10 +60,20 @@ window.addEventListener('error', (event) => {
 
 // --- TABS LOGIC ---
 function initTabs() {
+    // Nav buttons
     const navButtons = document.querySelectorAll('.nav-btn');
     navButtons.forEach(btn => {
         btn.addEventListener('click', () => {
             const tab = btn.getAttribute('data-tab');
+            if (tab) switchTab(tab);
+        });
+    });
+
+    // Dashboard cards navigation
+    const statCards = document.querySelectorAll('.card[data-tab]');
+    statCards.forEach(card => {
+        card.addEventListener('click', () => {
+            const tab = card.getAttribute('data-tab');
             if (tab) switchTab(tab);
         });
     });

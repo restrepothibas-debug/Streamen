@@ -33,6 +33,10 @@
                     <span class="w-6 flex justify-center"><i class="fa-solid fa-tv fa-fw text-lg"></i></span>
                     <span>Gestión de Cuentas</span>
                 </button>
+                <button data-tab="customers" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/50 font-medium transition-all text-left">
+                    <span class="w-6 flex justify-center"><i class="fa-solid fa-users fa-fw text-lg"></i></span>
+                    <span>Directorio Clientes</span>
+                </button>
                 <button data-tab="recovery" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/50 font-medium transition-all text-left">
                     <span class="w-6 flex justify-center"><i class="fa-solid fa-key fa-fw text-lg"></i></span>
                     <span>Desbloqueo / OTP</span>
@@ -92,7 +96,7 @@
             <div id="tab-dashboard" class="tab-content space-y-8">
                 <!-- Estadísticas Clave -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div class="card">
+                    <div class="card cursor-pointer hover:border-indigo-500 transition-colors" data-tab="accounts">
                         <div class="flex justify-between items-start mb-4">
                             <span class="text-slate-400 font-medium text-sm">Cuentas Matrices</span>
                             <span class="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl"><i class="fa-solid fa-server"></i></span>
@@ -100,7 +104,7 @@
                         <h3 class="text-3xl font-extrabold" id="stat-total-accounts">...</h3>
                         <p class="text-xs text-slate-500 mt-1" id="stat-total-profiles">Cargando...</p>
                     </div>
-                    <div class="card">
+                    <div class="card cursor-pointer hover:border-emerald-500 transition-colors" data-tab="customers">
                         <div class="flex justify-between items-start mb-4">
                             <span class="text-slate-400 font-medium text-sm">Clientes Activos</span>
                             <span class="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl"><i class="fa-solid fa-users"></i></span>
@@ -108,7 +112,7 @@
                         <h3 class="text-3xl font-extrabold" id="stat-active-customers">...</h3>
                         <p class="text-xs text-slate-500 mt-1">Suscripciones activas</p>
                     </div>
-                    <div class="card">
+                    <div class="card cursor-pointer hover:border-rose-500 transition-colors" data-tab="recovery">
                         <div class="flex justify-between items-start mb-4">
                             <span class="text-slate-400 font-medium text-sm">Alertas Críticas</span>
                             <span class="p-2 bg-rose-500/10 text-rose-400 rounded-xl"><i class="fa-solid fa-triangle-exclamation"></i></span>
