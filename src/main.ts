@@ -13,16 +13,37 @@ let currentSearchQuery = "";
 
 // --- INITIALIZATION ---
 window.addEventListener('DOMContentLoaded', async () => {
-    initTabs();
-    initSearch();
-    initModals();
+    console.log('DOM Content Loaded. Initializing StreamControl...');
     
-    // Legacy check
-    if (localStorage.getItem('sc_accounts')) {
-        showToast("Legacy Data", "Se detectaron datos antiguos. Use el sistema de Backup para importar.", "info");
-    }
+    try {
+        initTabs();
+        initSearch();
+        initModals();
+        
+        // Legacy check
+        if (localStorage.getItem('sc_accounts')) {
+            showToast("Legacy Data", "Se detectaron datos antiguos. Use el sistema de Backup para importar.", "info");
+        }
 
-    await refreshAllData();
+        console.log('Services initialized. Refreshing data from Supabase...');
+        await refreshAllData();
+        console.log('Data refresh complete.');
+
+    } catch (error) {
+        console.error('Critical initialization error:', error);
+        showToast("Error Crítico", "No se pudo iniciar la aplicación correctamente.", "error");
+        
+        const statusEl = document.getElementById('connection-status');
+        if (statusEl) {
+            statusEl.className = "flex items-center gap-2 px-3 py-1.5 bg-rose-500/10 text-rose-400 rounded-full border border-rose-500/20 text-xs font-semibold";
+            statusEl.innerHTML = `<span class="h-2 w-2 rounded-full bg-rose-400"></span> Error de Conexión`;
+        }
+    }
+});
+
+// Catch unhandled errors
+window.addEventListener('error', (event) => {
+    console.error('Global Error Captured:', event.error);
 });
 
 // --- TABS LOGIC ---
